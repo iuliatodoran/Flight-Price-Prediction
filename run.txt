@@ -1,0 +1,8 @@
+cd backend
+py -m pip install fastapi uvicorn joblib pandas scikit-learn
+py -m uvicorn app:app --reload
+
+
+cd frontend
+npm install
+npm run dev
