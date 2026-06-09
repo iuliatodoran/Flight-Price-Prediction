@@ -73,11 +73,87 @@
   font-size: 12px;
   cursor: pointer;
   font-family: inherit;
+  transition: border-color 0.15s, color 0.15s;
 }
-.back-btn:hover {
-  border-color: rgba(79,142,247,0.3);
+.back-btn:hover, .back-btn.active {
+  border-color: rgba(79,142,247,0.35);
   color: #7eaafc;
 }
+
+/* ─── Search bar inline ─── */
+.flights-search-bar {
+  margin: 12px 32px 0;
+  background: rgba(255,255,255,0.02);
+  border: 0.5px solid rgba(79,142,247,0.15);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.flt-search-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 120px;
+  gap: 10px;
+  align-items: end;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.3px;
+}
+
+.field-input {
+  background: rgba(0,0,0,0.3);
+  border: 0.5px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #e8eaf0;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.field-input::placeholder { color: rgba(255,255,255,0.25); }
+
+.field-input:focus {
+  border-color: rgba(79,142,247,0.4);
+  box-shadow: 0 0 0 3px rgba(79,142,247,0.08);
+}
+
+.field-input[type="date"] { color-scheme: dark; }
+.field-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.4);
+  cursor: pointer;
+}
+.field-input[type="date"]::-webkit-datetime-edit-fields-wrapper { color: rgba(255,255,255,0.7); }
+.field-input[type="date"]::-webkit-datetime-edit-day-field,
+.field-input[type="date"]::-webkit-datetime-edit-month-field,
+.field-input[type="date"]::-webkit-datetime-edit-year-field { color: rgba(255,255,255,0.7); }
+.field-input[type="date"]::-webkit-datetime-edit-text { color: rgba(255,255,255,0.3); }
+
+.search-btn {
+  background: #4f8ef7;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.search-btn:hover:not(:disabled) { background: #3d7ef0; }
 
 /* ─── AI tip ─── */
 .ai-tip {
@@ -305,6 +381,10 @@
   .fc-duration { display: none; }
   .flights-header { flex-direction: column; gap: 8px; }
   .back-btn { margin-left: 0; }
+  .flt-search-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .flt-search-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
   .flight-card { grid-template-columns: 1fr; }

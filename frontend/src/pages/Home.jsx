@@ -3,13 +3,21 @@ import { useNavigate } from "react-router-dom"
 import Nav from "../components/Nav"
 import "./Home.css"
 
+const RATES = { RON: 0.054, EUR: 0.011 }
+
+function formatMoney(inr, currency) {
+  const val = Math.round(inr * RATES[currency])
+  return new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 0 }).format(val) + " " + currency
+}
+
+// Rute hardcodate pentru preview — preturile sunt INR si sunt statice (nu vin din model)
 const POPULAR_ROUTES = [
-  { from: "Delhi", to: "Mumbai", airline: "Vistara", class: "Economy", duration: "2h 10m", price: "₹5.200", badge: "green", label: "Preț bun" },
-  { from: "Bangalore", to: "Kolkata", airline: "IndiGo", class: "Economy", duration: "2h 45m", price: "₹4.800", badge: "amber", label: "Preț mediu" },
-  { from: "Mumbai", to: "Chennai", airline: "Air India", class: "Business", duration: "1h 55m", price: "₹52.400", badge: "red", label: "Preț ridicat" },
-  { from: "Delhi", to: "Hyderabad", airline: "SpiceJet", class: "Economy", duration: "2h 20m", price: "₹3.900", badge: "green", label: "Preț bun" },
-  { from: "Kolkata", to: "Bangalore", airline: "AirAsia", class: "Economy", duration: "3h 05m", price: "₹6.100", badge: "amber", label: "Preț mediu" },
-  { from: "Chennai", to: "Delhi", airline: "GO FIRST", class: "Economy", duration: "2h 50m", price: "₹7.300", badge: "amber", label: "Preț mediu" },
+  { from: "Delhi",     to: "Mumbai",    airline: "Vistara",   class: "Economy",  duration: "2h 10m", priceINR: 5200,  badge: "green", label: "Preț bun" },
+  { from: "Bangalore", to: "Kolkata",   airline: "IndiGo",    class: "Economy",  duration: "2h 45m", priceINR: 4800,  badge: "amber", label: "Preț mediu" },
+  { from: "Mumbai",    to: "Chennai",   airline: "Air India", class: "Business", duration: "1h 55m", priceINR: 52400, badge: "red",   label: "Preț ridicat" },
+  { from: "Delhi",     to: "Hyderabad", airline: "SpiceJet",  class: "Economy",  duration: "2h 20m", priceINR: 3900,  badge: "green", label: "Preț bun" },
+  { from: "Kolkata",   to: "Bangalore", airline: "AirAsia",   class: "Economy",  duration: "3h 05m", priceINR: 6100,  badge: "amber", label: "Preț mediu" },
+  { from: "Chennai",   to: "Delhi",     airline: "GO FIRST",  class: "Economy",  duration: "2h 50m", priceINR: 7300,  badge: "amber", label: "Preț mediu" },
 ]
 
 const CITIES = ["Bangalore", "Chennai", "Delhi", "Hyderabad", "Kolkata", "Mumbai"]
@@ -22,9 +30,13 @@ export default function Home() {
     date: "",
     class: "Economy",
   })
+  const [currency, setCurrency] = useState("RON")
+  // Truc pentru date input: type="text" cu placeholder curat pana la focus
+  const [dateType, setDateType] = useState("text")
 
   const setField = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
+  // Transmitem formularul ca location.state catre /flights (nu in URL)
   function handleSearch() {
     navigate("/flights", { state: form })
   }
@@ -55,7 +67,17 @@ export default function Home() {
           </div>
           <div className="field-group">
             <div className="field-label">Data zborului</div>
-            <input className="field-input" type="date" min={new Date().toISOString().split("T")[0]} value={form.date} onChange={e => setField("date", e.target.value)} />
+            {/* min = azi — previne selectarea datelor din trecut */}
+            <input
+              className="field-input"
+              type={dateType}
+              placeholder="Oricând"
+              min={new Date().toISOString().split("T")[0]}
+              value={form.date}
+              onFocus={() => setDateType("date")}
+              onBlur={() => { if (!form.date) setDateType("text") }}
+              onChange={e => setField("date", e.target.value)}
+            />
           </div>
           <div className="field-group">
             <div className="field-label">Clasa</div>
@@ -64,7 +86,7 @@ export default function Home() {
               <option>Business</option>
             </select>
           </div>
-          <div style={{ gridColumn: "1 / -1" }}>
+          <div style={{ gridColumn: "1 / -1" }}> {/* intinde butonul pe toata latimea grid-ului */}
             {form.source_city === form.destination_city && (
               <div style={{
                 background: "rgba(226,75,74,0.08)", border: "0.5px solid rgba(226,75,74,0.2)",
@@ -92,8 +114,22 @@ export default function Home() {
       </div>
 
       <div className="section">
-        <div className="section-label">Rute populare</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+          <div className="section-label" style={{ margin: 0 }}>Rute populare</div>
+          <div style={{ display: "flex", gap: "5px" }}>
+            {["RON", "EUR"].map(c => (
+              <button key={c} onClick={() => setCurrency(c)} style={{
+                background: currency === c ? "rgba(79,142,247,0.12)" : "rgba(255,255,255,0.04)",
+                border: `0.5px solid ${currency === c ? "rgba(79,142,247,0.3)" : "rgba(255,255,255,0.1)"}`,
+                borderRadius: "6px", padding: "4px 10px",
+                color: currency === c ? "#7eaafc" : "rgba(255,255,255,0.4)",
+                fontSize: "11px", cursor: "pointer", fontFamily: "inherit"
+              }}>{c}</button>
+            ))}
+          </div>
+        </div>
         <div className="routes-grid">
+          {/* Click pe card deschide /flights cu ruta precompletata, fara data */}
           {POPULAR_ROUTES.map((r, i) => (
             <div key={i} className="route-card" onClick={() => navigate("/flights", { state: { source_city: r.from, destination_city: r.to, class: r.class } })}>
               <div className="route-header">
@@ -101,7 +137,7 @@ export default function Home() {
               </div>
               <div className="route-airline">{r.airline} · {r.class} · {r.duration}</div>
               <div className="route-footer">
-                <div className="route-price">{r.price}</div>
+                <div className="route-price">{formatMoney(r.priceINR, currency)}</div>
                 <div className={`route-badge badge-${r.badge}`}>{r.label}</div>
               </div>
             </div>

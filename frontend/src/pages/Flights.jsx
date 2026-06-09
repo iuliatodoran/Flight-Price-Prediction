@@ -7,7 +7,9 @@ import "./Flights.css"
 
 const API_BASE = "http://127.0.0.1:8000"
 const RATES = { INR: 1, EUR: 0.011, RON: 0.054 }
+const CITIES = ["Bangalore", "Chennai", "Delhi", "Hyderabad", "Kolkata", "Mumbai"]
 
+// Un profil reprezentativ per companie — parametrii reali nu sunt disponibili, deci folosim medii din dataset
 const SAMPLE_OPTIONS = [
   { airline: "Vistara",   label: "Vistara",    stops: "zero",        departure_time: "Morning",       arrival_time: "Afternoon", duration: 2.0 },
   { airline: "Indigo",    label: "IndiGo",     stops: "one",         departure_time: "Evening",       arrival_time: "Night",     duration: 3.5 },
@@ -39,28 +41,43 @@ export default function Flights() {
   const { user } = useAuth()
   const search = location.state || {}
 
-  const source = search.source_city || "Delhi"
-  const destination = search.destination_city || "Mumbai"
-  const flightClass = search.class || "Economy"
-  const date = search.date || ""
+  // Parametrii activi ai cautarii (ce se afiseaza si se trimite la API)
+  const [activeParams, setActiveParams] = useState({
+    source: search.source_city || "Delhi",
+    destination: search.destination_city || "Mumbai",
+    flightClass: search.class || "Economy",
+    date: search.date || "",
+  })
+  const { source, destination, flightClass, date } = activeParams
 
+  // Starea formularului din panoul de cautare (ce editeaza userul inainte de submit)
+  const [formParams, setFormParams] = useState({ ...activeParams })
+  const [showSearch, setShowSearch] = useState(false)
+  // Truc pentru date input: type="text" cu placeholder pana la focus
+  const [formDateType, setFormDateType] = useState("text")
+
+  const setFormField = (k, v) => setFormParams(p => ({ ...p, [k]: v }))
+
+  // Daca nu s-a ales data, folosim 30 zile ca valoare neutra de predictie
   const daysLeft = useMemo(() => {
     if (!date) return 30
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const d = new Date(date)
-    return Math.max(0, Math.round((d - today) / (1000 * 60 * 60 * 24)))
+    return Math.max(0, Math.round((new Date(date) - today) / (1000 * 60 * 60 * 24)))
   }, [date])
 
   const [results, setResults] = useState(
     SAMPLE_OPTIONS.map(o => ({ ...o, price: null, loading: true, error: false }))
   )
   const [currency, setCurrency] = useState("RON")
+  // Construieste un index dupa cheia compusa airline|from|to|class pentru toggle rapid save/unsave
   const [savedMap, setSavedMap] = useState({})
-  const [pendingSave, setPendingSave] = useState(new Set())
+  const [pendingSave, setPendingSave] = useState(new Set()) // previne dublu-click pe save
   const [toast, setToast] = useState(null)
 
+  // Ruleaza la mount si la fiecare noua cautare
   useEffect(() => {
+    setResults(SAMPLE_OPTIONS.map(o => ({ ...o, price: null, loading: true, error: false })))
     SAMPLE_OPTIONS.forEach((opt, i) => {
       fetch(`${API_BASE}/predict`, {
         method: "POST",
@@ -93,7 +110,7 @@ export default function Flights() {
           ))
         })
     })
-  }, [])
+  }, [source, destination, flightClass, date, daysLeft])
 
   useEffect(() => {
     if (!user) { setSavedMap({}); return }
@@ -111,6 +128,20 @@ export default function Flights() {
       })
   }, [user])
 
+  function toggleSearch() {
+    if (!showSearch) {
+      setFormParams({ ...activeParams }) // reset form la cautarea activa curenta
+      setFormDateType(activeParams.date ? "date" : "text")
+    }
+    setShowSearch(s => !s)
+  }
+
+  function handleSearch() {
+    if (formParams.source === formParams.destination) return
+    setActiveParams(formParams)
+    setShowSearch(false)
+  }
+
   async function handleSave(r) {
     if (!user) { navigate("/auth"); return }
     const key = `${r.airline}|${source}|${destination}|${flightClass}`
@@ -122,13 +153,20 @@ export default function Flights() {
       setSavedMap(prev => { const next = { ...prev }; delete next[key]; return next })
       showToast("Eliminat din favorite")
     } else {
-      const { data } = await supabase.from("favorites").insert({
+      const { data, error } = await supabase.from("favorites").insert({
         user_id: user.id,
         airline: r.airline,
         source_city: source,
         destination_city: destination,
         class: flightClass,
+        flight_date: date || null,
+        saved_price: r.price ?? null,
+        departure_time: r.departure_time,
+        arrival_time: r.arrival_time,
+        stops: r.stops,
+        duration: r.duration,
       }).select("id").single()
+      if (error) { console.error("Favorites insert error:", error); showToast("Eroare la salvare"); return }
       if (data) setSavedMap(prev => ({ ...prev, [key]: data.id }))
       showToast("Salvat în favorite ♥")
     }
@@ -140,6 +178,7 @@ export default function Flights() {
     setTimeout(() => setToast(null), 2200)
   }
 
+  // Sortare crescatoare; preturile null (eroare/loading) merg la sfarsit
   const sorted = [...results].sort((a, b) => {
     if (a.price === null && b.price === null) return 0
     if (a.price === null) return 1
@@ -158,9 +197,66 @@ export default function Flights() {
         <div className="route-meta">
           {date || "Oricând"} · {flightClass} · {results.length} opțiuni
         </div>
-        <button className="back-btn" onClick={() => navigate("/")}>← Modifică căutarea</button>
+        <button className={`back-btn${showSearch ? " active" : ""}`} onClick={toggleSearch}>
+          {showSearch ? "✕ Închide" : "Modifică căutarea"}
+        </button>
       </div>
 
+      {showSearch && (
+        <div className="flights-search-bar">
+          <div className="flt-search-grid">
+            <div className="field-group">
+              <div className="field-label">De la</div>
+              <select className="field-input" value={formParams.source} onChange={e => setFormField("source", e.target.value)}>
+                {CITIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="field-group">
+              <div className="field-label">Spre</div>
+              <select className="field-input" value={formParams.destination} onChange={e => setFormField("destination", e.target.value)}>
+                {CITIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="field-group">
+              <div className="field-label">Data zborului</div>
+              <input
+                className="field-input"
+                type={formDateType}
+                placeholder="Oricând"
+                min={new Date().toISOString().split("T")[0]}
+                value={formParams.date}
+                onFocus={() => setFormDateType("date")}
+                onBlur={() => { if (!formParams.date) setFormDateType("text") }}
+                onChange={e => setFormField("date", e.target.value)}
+              />
+            </div>
+            <div className="field-group">
+              <div className="field-label">Clasa</div>
+              <select className="field-input" value={formParams.flightClass} onChange={e => setFormField("flightClass", e.target.value)}>
+                <option>Economy</option>
+                <option>Business</option>
+              </select>
+            </div>
+            <div style={{ alignSelf: "flex-end" }}>
+              {formParams.source === formParams.destination && (
+                <div style={{ fontSize: "11px", color: "#e24b4a", marginBottom: "6px" }}>
+                  Plecare și destinație identice.
+                </div>
+              )}
+              <button
+                className="search-btn"
+                onClick={handleSearch}
+                disabled={formParams.source === formParams.destination}
+                style={{ opacity: formParams.source === formParams.destination ? 0.4 : 1 }}
+              >
+                Caută →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sfat static bazat pe daysLeft — nu e un apel AI, e o regula simpla */}
       {cheapest && (
         <div className="ai-tip">
           <span className="ai-icon">✦</span>
